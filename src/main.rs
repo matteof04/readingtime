@@ -12,7 +12,11 @@ use log::{error, info, trace, warn};
 use readingtime::calculate_reading_time;
 use regex::Regex;
 use reqwest::Url;
-use teloxide::{dispatching::UpdateFilterExt, prelude::*, types::MessageEntityKind};
+use teloxide::{
+    dispatching::UpdateFilterExt,
+    prelude::*,
+    types::{MessageEntityKind, ReplyParameters},
+};
 use thiserror::Error;
 
 #[tokio::main]
@@ -45,7 +49,7 @@ async fn main() {
     let wpm = Arc::new(wpm);
     let handler =
         Update::filter_message().endpoint(|bot: Bot, wpm: Arc<f32>, msg: Message| async move {
-            if let Some(user) = msg.from() {
+            if let Some(user) = &msg.from {
                 trace!("New message from user with ID: {:?}", user.id);
             }
             if let Some(url) = extract_url(&msg) {
@@ -57,24 +61,24 @@ async fn main() {
                                 msg.chat.id,
                                 format!("Estimated reading time: {reading_time} minutes"),
                             )
-                            .reply_to_message_id(msg.id)
+                            .reply_parameters(ReplyParameters::new(msg.id))
                             .await?;
                         }
                         Err(e) => {
                             bot.send_message(msg.chat.id, format!("{e}"))
-                                .reply_to_message_id(msg.id)
+                                .reply_parameters(ReplyParameters::new(msg.id))
                                 .await?;
                         }
                     },
                     Err(e) => {
                         bot.send_message(msg.chat.id, format!("{e}"))
-                            .reply_to_message_id(msg.id)
+                            .reply_parameters(ReplyParameters::new(msg.id))
                             .await?;
                     }
                 }
             } else {
                 bot.send_message(msg.chat.id, format!("{}", ProcessError::UrlParsing))
-                    .reply_to_message_id(msg.id)
+                    .reply_parameters(ReplyParameters::new(msg.id))
                     .await?;
             }
             respond(())
