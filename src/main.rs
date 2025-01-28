@@ -9,7 +9,7 @@
 use std::{env, process::exit, sync::Arc};
 
 use log::{error, info, trace, warn};
-use readingtime::calculate_reading_time;
+use readingtime::{calculate_reading_time, ReadingTimeError};
 use regex::Regex;
 use reqwest::Url;
 use teloxide::{
@@ -52,35 +52,21 @@ async fn main() {
             if let Some(user) = &msg.from {
                 trace!("New message from user with ID: {:?}", user.id);
             }
-            if let Some(url) = extract_url(&msg) {
-                match url {
-                    Ok(u) => match get_content(u.to_owned()).await {
-                        Ok(content) => {
-                            let reading_time = calculate_reading_time(&content, *wpm);
-                            bot.send_message(
-                                msg.chat.id,
-                                format!("Estimated reading time: {reading_time} minutes"),
-                            )
-                            .reply_parameters(ReplyParameters::new(msg.id))
-                            .await?;
-                        }
-                        Err(e) => {
-                            bot.send_message(msg.chat.id, format!("{e}"))
-                                .reply_parameters(ReplyParameters::new(msg.id))
-                                .await?;
-                        }
-                    },
-                    Err(e) => {
-                        bot.send_message(msg.chat.id, format!("{e}"))
-                            .reply_parameters(ReplyParameters::new(msg.id))
-                            .await?;
-                    }
-                }
-            } else {
-                bot.send_message(msg.chat.id, format!("{}", ProcessError::UrlParsing))
+            match get_reading_time(wpm, &msg).await {
+                Ok(reading_time) => {
+                    bot.send_message(
+                        msg.chat.id,
+                        format!("Estimated reading time: {reading_time} minutes"),
+                    )
                     .reply_parameters(ReplyParameters::new(msg.id))
                     .await?;
-            }
+                }
+                Err(e) => {
+                    bot.send_message(msg.chat.id, format!("{e}"))
+                        .reply_parameters(ReplyParameters::new(msg.id))
+                        .await?;
+                }
+            };
             respond(())
         });
     let bot = Bot::new(bot_token);
@@ -93,6 +79,12 @@ async fn main() {
         .await;
 }
 
+async fn get_reading_time(wpm: Arc<f32>, msg: &Message) -> Result<f32, ProcessError> {
+    let url = extract_url(msg).ok_or(ProcessError::UrlParsing)??;
+    let content = get_content(url).await?;
+    calculate_reading_time(&content, *wpm).map_err(ProcessError::ParserError)
+}
+
 #[derive(Debug, Error)]
 enum ProcessError {
     #[error("Not a valid URL")]
@@ -101,6 +93,8 @@ enum ProcessError {
     Request,
     #[error("The site content is not a valid HTML")]
     HtmlParsing,
+    #[error(transparent)]
+    ParserError(ReadingTimeError),
 }
 
 fn extract_url(msg: &Message) -> Option<Result<Url, ProcessError>> {

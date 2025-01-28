@@ -1,7 +1,7 @@
 [package]
 name = "readingtime"
 authors = ["Matteo Franceschini"]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Reading time calculator bot for Telegram"
 license = "BSD-3-Clause-Clear"
@@ -9,11 +9,11 @@ readme = "README.md"
 repository = "https://github.com/matteof04/readingtime"
 
 [dependencies]
+dom_smoothie = "0.4.0"
 log = "0.4.20"
 pretty_env_logger = "0.5.0"
 regex = "1.10.2"
 reqwest = "0.12.12"
-select = "0.6.0"
 teloxide = { version = "0.13.0", features = ["macros"] }
 thiserror = "2"
 tokio = { version = "1.34.0", features = ["rt-multi-thread", "macros"] }
